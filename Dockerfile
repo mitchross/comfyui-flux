@@ -1,5 +1,7 @@
 FROM python:3.11-slim-bookworm
-
+LABEL org.opencontainers.image.source=https://github.com/OWNER/REPOSITORY
+LABEL org.opencontainers.image.description="ComfyUI Flux Docker Image"
+LABEL org.opencontainers.image.licenses=MIT
 # Install git and aria2c
 RUN apt-get update \
     && apt-get install -y git \
