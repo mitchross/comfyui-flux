@@ -7,7 +7,7 @@ echo "########################################"
 
 # Initialize model downloads if needed
 if [ ! -f "/opt/comfyui/models/.initialized" ]; then
-    bash /scripts/model_download.sh
+    bash /scripts/models_download.sh
     touch /opt/comfyui/models/.initialized
 fi
 
