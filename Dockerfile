@@ -58,7 +58,7 @@ USER root
 
 # Copy scripts
 COPY --chmod=755 scripts/entrypoint.sh /scripts/
-COPY --chmod=755 scripts/model_download.sh /scripts/
+COPY --chmod=755 scripts/models_download.sh /scripts/
 COPY scripts/models.txt /scripts/
 COPY scripts/models_fp8.txt /scripts/
 
