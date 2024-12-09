@@ -38,7 +38,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
-          driver: native
+          driver: docker-container
           install: true
           buildkitd-flags: --debug
 
