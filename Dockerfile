@@ -1,7 +1,7 @@
 # Base Image
 FROM python:3.11-slim-bookworm as base
 
-# System dependencies
+# System dependencies - grouped to improve cache utilization
 RUN apt-get update && \
     apt-get install -y \
     git \
@@ -15,22 +15,26 @@ RUN apt-get update && \
     sudo \
     && rm -rf /var/lib/apt/lists/*
 
-# Create directory structure and user first
+# Create user and directory structure first (rarely changes)
 RUN useradd -m -u 1000 -d /opt/comfyui comfyui && \
-    mkdir -p /opt/comfyui/{models,config,output,cache,.local/lib/python3.11/site-packages} && \
+    mkdir -p /opt/comfyui/{models,config,output,cache} && \
     mkdir -p /opt/comfyui/models/{unet,clip,vae,loras} && \
-    chown -R comfyui:comfyui /opt/comfyui
+    mkdir -p /opt/comfyui/ComfyUI/logs && \
+    chown -R comfyui:comfyui /opt/comfyui && \
+    chown -R comfyui:comfyui /usr/local/lib/python3.11/site-packages && \
+    chmod -R 777 /usr/local/lib/python3.11/site-packages
 
-# Switch to comfyui user for pip installations
+# Switch to comfyui user
 USER comfyui:comfyui
-ENV PATH="/opt/comfyui/.local/bin:$PATH"
-ENV PYTHONPATH=/opt/comfyui
-ENV HOME=/opt/comfyui
-ENV PIP_CACHE_DIR=/opt/comfyui/cache/pip
+ENV PATH="/opt/comfyui/.local/bin:$PATH" \
+    PYTHONPATH=/opt/comfyui \
+    HOME=/opt/comfyui \
+    PIP_CACHE_DIR=/opt/comfyui/cache/pip
 
-# Install CUDA-enabled PyTorch and related packages
+# Install PyTorch and related packages (heavy dependencies)
 ARG CUDA_VERSION=cu121
-RUN pip install --no-cache-dir --user \
+RUN --mount=type=cache,target=/opt/comfyui/cache/pip \
+    pip install --no-cache-dir --user \
     torch \
     torchvision \
     torchaudio \
@@ -38,19 +42,29 @@ RUN pip install --no-cache-dir --user \
     --index-url https://download.pytorch.org/whl/${CUDA_VERSION}
 
 # Install onnxruntime-gpu
-RUN pip uninstall --yes onnxruntime-gpu || true && \
+RUN --mount=type=cache,target=/opt/comfyui/cache/pip \
+    pip uninstall --yes onnxruntime-gpu || true && \
     pip install --no-cache-dir --user onnxruntime-gpu \
     --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
 
-# Install ComfyUI core
-RUN cd /opt/comfyui && \
-    git clone --recurse-submodules https://github.com/comfyanonymous/ComfyUI.git && \
-    cd ComfyUI && \
+# Clone and install ComfyUI (copy requirements.txt first for better caching)
+WORKDIR /opt/comfyui
+COPY --chown=comfyui:comfyui requirements.txt ./
+RUN --mount=type=cache,target=/opt/comfyui/cache/pip \
     pip install --no-cache-dir --user -r requirements.txt
 
-# Install common custom nodes
+RUN git clone --recurse-submodules https://github.com/comfyanonymous/ComfyUI.git && \
+    cd ComfyUI && \
+    mkdir -p logs && \
+    chmod 777 logs
+
+# Install custom nodes (separate layer for better caching)
 RUN cd /opt/comfyui/ComfyUI/custom_nodes && \
     git clone https://github.com/ltdrdata/ComfyUI-Manager.git && \
+    cd ComfyUI-Manager && \
+    pip install --no-cache-dir --user -r requirements.txt && \
+    chmod -R 777 . && \
+    cd .. && \
     git clone https://github.com/Extraltodeus/ComfyUI-AutomaticCFG && \
     git clone https://github.com/Clybius/ComfyUI-Extra-samplers && \
     git clone https://github.com/flowtyone/ComfyUI-Flowty-LDSR.git && \
@@ -62,29 +76,15 @@ RUN cd /opt/comfyui/ComfyUI/custom_nodes && \
 FROM base as runtime
 
 USER root
-
-# Copy scripts
 COPY --chmod=755 scripts/entrypoint.sh /scripts/
 COPY --chmod=755 scripts/models_download.sh /scripts/
 COPY scripts/models.txt /scripts/
 COPY scripts/models_fp8.txt /scripts/
-
-# Set ownership
 RUN chown -R comfyui:comfyui /scripts
 
 USER comfyui:comfyui
-
-# Environment setup
 ENV CLI_ARGS=""
-ENV PYTHONPATH=/opt/comfyui
-ENV HOME=/opt/comfyui
-ENV PATH="/opt/comfyui/.local/bin:$PATH"
-ENV PYTHONPYCACHEPREFIX="/opt/comfyui/cache/pycache"
-
-# Volume configuration
 VOLUME ["/opt/comfyui/models", "/opt/comfyui/config", "/opt/comfyui/output", "/opt/comfyui/cache"]
-
-WORKDIR /opt/comfyui
 EXPOSE 8188
 
 CMD ["/scripts/entrypoint.sh"]
