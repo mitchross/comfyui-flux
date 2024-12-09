@@ -8,18 +8,15 @@ RUN apt-get update && \
     libgl1 libglib2.0-0 fonts-dejavu-core sudo \
     && rm -rf /var/lib/apt/lists/*
 
-# Create user and directory structure
+# Create user and base directory
 RUN useradd -m -u 1000 -d /opt/comfyui comfyui && \
-    mkdir -p /opt/comfyui/{models,config,output,cache} && \
-    mkdir -p /opt/comfyui/models/{unet,clip,vae,loras} && \
-    mkdir -p /opt/comfyui/ComfyUI/logs && \
     chown -R comfyui:comfyui /opt/comfyui && \
     chown -R comfyui:comfyui /usr/local/lib/python3.11/site-packages && \
     chmod -R 777 /usr/local/lib/python3.11/site-packages
 
 USER comfyui:comfyui
 ENV PATH="/opt/comfyui/.local/bin:$PATH" \
-    PYTHONPATH=/opt/comfyui \
+    PYTHONPATH=/opt/comfyui/ComfyUI \
     HOME=/opt/comfyui \
     PIP_CACHE_DIR=/opt/comfyui/cache/pip
 
@@ -42,9 +39,14 @@ COPY --chown=comfyui:comfyui requirements.txt ./
 RUN --mount=type=cache,target=/opt/comfyui/cache/pip \
     pip install --no-cache-dir --user -r requirements.txt
 
+# Clone ComfyUI and create directory structure
 RUN rm -rf ComfyUI && \
     git clone --recurse-submodules https://github.com/comfyanonymous/ComfyUI.git && \
-    cd ComfyUI && mkdir -p logs && chmod 777 logs
+    mkdir -p /opt/comfyui/{models,config,output,cache} && \
+    mkdir -p /opt/comfyui/models/{unet,clip,vae,loras} && \
+    cd ComfyUI && mkdir -p logs && \
+    chmod -R 777 logs && \
+    chown -R comfyui:comfyui /opt/comfyui
 
 # Install custom nodes
 RUN cd /opt/comfyui/ComfyUI/custom_nodes && \
