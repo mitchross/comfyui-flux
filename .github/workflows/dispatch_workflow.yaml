@@ -1,7 +1,0 @@
-on:
-  workflow_dispatch:  # Add this to the existing triggers
-  push:
-    branches: [ main ]
-    tags: [ 'v*' ]
-  pull_request:
-    branches: [ main ]
