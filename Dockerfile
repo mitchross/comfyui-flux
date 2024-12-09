@@ -15,9 +15,22 @@ RUN apt-get update && \
     sudo \
     && rm -rf /var/lib/apt/lists/*
 
+# Create directory structure and user first
+RUN useradd -m -u 1000 -d /opt/comfyui comfyui && \
+    mkdir -p /opt/comfyui/{models,config,output,cache,.local/lib/python3.11/site-packages} && \
+    mkdir -p /opt/comfyui/models/{unet,clip,vae,loras} && \
+    chown -R comfyui:comfyui /opt/comfyui
+
+# Switch to comfyui user for pip installations
+USER comfyui:comfyui
+ENV PATH="/opt/comfyui/.local/bin:$PATH"
+ENV PYTHONPATH=/opt/comfyui
+ENV HOME=/opt/comfyui
+ENV PIP_CACHE_DIR=/opt/comfyui/cache/pip
+
 # Install CUDA-enabled PyTorch and related packages
 ARG CUDA_VERSION=cu121
-RUN pip install --no-cache-dir --break-system-packages \
+RUN pip install --no-cache-dir --user \
     torch \
     torchvision \
     torchaudio \
@@ -25,21 +38,15 @@ RUN pip install --no-cache-dir --break-system-packages \
     --index-url https://download.pytorch.org/whl/${CUDA_VERSION}
 
 # Install onnxruntime-gpu
-RUN pip uninstall --break-system-packages --yes onnxruntime-gpu && \
-    pip install --no-cache-dir --break-system-packages onnxruntime-gpu \
+RUN pip uninstall --yes onnxruntime-gpu || true && \
+    pip install --no-cache-dir --user onnxruntime-gpu \
     --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
-
-# Create directory structure and user
-RUN useradd -m -u 1000 -d /opt/comfyui comfyui && \
-    mkdir -p /opt/comfyui/{models,config,output,cache} && \
-    mkdir -p /opt/comfyui/models/{unet,clip,vae,loras} && \
-    chown -R comfyui:comfyui /opt/comfyui
 
 # Install ComfyUI core
 RUN cd /opt/comfyui && \
     git clone --recurse-submodules https://github.com/comfyanonymous/ComfyUI.git && \
     cd ComfyUI && \
-    pip install --no-cache-dir --break-system-packages -r requirements.txt
+    pip install --no-cache-dir --user -r requirements.txt
 
 # Install common custom nodes
 RUN cd /opt/comfyui/ComfyUI/custom_nodes && \
@@ -71,7 +78,7 @@ USER comfyui:comfyui
 ENV CLI_ARGS=""
 ENV PYTHONPATH=/opt/comfyui
 ENV HOME=/opt/comfyui
-ENV PATH="${PATH}:/opt/comfyui/.local/bin"
+ENV PATH="/opt/comfyui/.local/bin:$PATH"
 ENV PYTHONPYCACHEPREFIX="/opt/comfyui/cache/pycache"
 
 # Volume configuration
