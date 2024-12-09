@@ -18,7 +18,7 @@ jobs:
       matrix:
         cuda_version: [cu121, cu124]
         image_type: [base, flux]
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
