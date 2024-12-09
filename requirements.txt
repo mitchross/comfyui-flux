@@ -1,0 +1,9 @@
+numpy
+opencv-python
+pillow
+transformers
+safetensors
+aiohttp
+accelerate
+pyyaml
+GitPython
