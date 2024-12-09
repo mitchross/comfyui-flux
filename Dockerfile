@@ -1,10 +1,10 @@
-FROM python:3.11-slim-bookworm
-LABEL org.opencontainers.image.source=https://github.com/OWNER/REPOSITORY
-LABEL org.opencontainers.image.description="ComfyUI Flux Docker Image"
-LABEL org.opencontainers.image.licenses=MIT
-# Install git and aria2c
-RUN apt-get update \
-    && apt-get install -y git \
+# Base Image
+FROM python:3.11-slim-bookworm as base
+
+# System dependencies
+RUN apt-get update && \
+    apt-get install -y \
+    git \
     build-essential \
     gcc \
     g++ \
@@ -15,10 +15,8 @@ RUN apt-get update \
     sudo \
     && rm -rf /var/lib/apt/lists/*
 
-# Define build argument for CUDA version with default value
+# Install CUDA-enabled PyTorch and related packages
 ARG CUDA_VERSION=cu121
-
-# Install torch, torchvision, torchaudio and xformers
 RUN pip install --no-cache-dir --break-system-packages \
     torch \
     torchvision \
@@ -27,30 +25,59 @@ RUN pip install --no-cache-dir --break-system-packages \
     --index-url https://download.pytorch.org/whl/${CUDA_VERSION}
 
 # Install onnxruntime-gpu
-RUN pip uninstall --break-system-packages --yes \
-    onnxruntime-gpu \
-    && pip install --no-cache-dir --break-system-packages \
-    onnxruntime-gpu \
+RUN pip uninstall --break-system-packages --yes onnxruntime-gpu && \
+    pip install --no-cache-dir --break-system-packages onnxruntime-gpu \
     --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
 
-# Install dependencies for ComfyUI and ComfyUI-Manager
-RUN pip install --no-cache-dir --break-system-packages \
-    -r https://raw.githubusercontent.com/comfyanonymous/ComfyUI/master/requirements.txt \
-    -r https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main/requirements.txt
+# Create directory structure and user
+RUN useradd -m -u 1000 -d /opt/comfyui comfyui && \
+    mkdir -p /opt/comfyui/{models,config,output,cache} && \
+    mkdir -p /opt/comfyui/models/{unet,clip,vae,loras} && \
+    chown -R comfyui:comfyui /opt/comfyui
 
-# Create a low-privilege user
-RUN useradd -m -d /app runner \
-    && mkdir -p /scripts /workflows \
-    && chown runner:runner /app /scripts /workflows
-COPY --chown=runner:runner scripts/. /scripts/
-COPY --chown=runner:runner workflows/. /workflows/
+# Install ComfyUI core
+RUN cd /opt/comfyui && \
+    git clone --recurse-submodules https://github.com/comfyanonymous/ComfyUI.git && \
+    cd ComfyUI && \
+    pip install --no-cache-dir --break-system-packages -r requirements.txt
 
-# Add runner to sudoers
-RUN echo "runner ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/runner
+# Install common custom nodes
+RUN cd /opt/comfyui/ComfyUI/custom_nodes && \
+    git clone https://github.com/ltdrdata/ComfyUI-Manager.git && \
+    git clone https://github.com/Extraltodeus/ComfyUI-AutomaticCFG && \
+    git clone https://github.com/Clybius/ComfyUI-Extra-samplers && \
+    git clone https://github.com/flowtyone/ComfyUI-Flowty-LDSR.git && \
+    git clone https://github.com/Suzie1/ComfyUI_Comfyroll_CustomNodes.git && \
+    git clone https://github.com/city96/ComfyUI_ExtraModels && \
+    git clone https://github.com/ssitu/ComfyUI_UltimateSDUpscale --recursive
 
-USER runner:runner
-VOLUME /app
-WORKDIR /app
-EXPOSE 8188
+# Runtime Image
+FROM base as runtime
+
+USER root
+
+# Copy scripts
+COPY --chmod=755 scripts/entrypoint.sh /scripts/
+COPY --chmod=755 scripts/model_download.sh /scripts/
+COPY scripts/models.txt /scripts/
+COPY scripts/models_fp8.txt /scripts/
+
+# Set ownership
+RUN chown -R comfyui:comfyui /scripts
+
+USER comfyui:comfyui
+
+# Environment setup
 ENV CLI_ARGS=""
-CMD ["bash","/scripts/entrypoint.sh"]
+ENV PYTHONPATH=/opt/comfyui
+ENV HOME=/opt/comfyui
+ENV PATH="${PATH}:/opt/comfyui/.local/bin"
+ENV PYTHONPYCACHEPREFIX="/opt/comfyui/cache/pycache"
+
+# Volume configuration
+VOLUME ["/opt/comfyui/models", "/opt/comfyui/config", "/opt/comfyui/output", "/opt/comfyui/cache"]
+
+WORKDIR /opt/comfyui
+EXPOSE 8188
+
+CMD ["/scripts/entrypoint.sh"]

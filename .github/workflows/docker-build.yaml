@@ -1,4 +1,4 @@
-name: Build and Push Docker Image
+name: Build and Push Docker Images
 
 on:
   push:
@@ -16,6 +16,7 @@ jobs:
     strategy:
       matrix:
         cuda_version: [cu121, cu124]
+        image_type: [base, flux]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -32,16 +33,25 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels) for Docker
+      - name: Extract metadata for Docker
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.image_type }}
           tags: |
             type=raw,value=${{ matrix.cuda_version }}
             type=raw,value=latest,enable=${{ matrix.cuda_version == 'cu121' }}
             type=semver,pattern={{version}}-${{ matrix.cuda_version }}
             type=semver,pattern={{major}}.{{minor}}-${{ matrix.cuda_version }}
+
+      - name: Set build target
+        id: target
+        run: |
+          if [ "${{ matrix.image_type }}" = "base" ]; then
+            echo "target=base" >> $GITHUB_OUTPUT
+          else
+            echo "target=runtime" >> $GITHUB_OUTPUT
+          fi
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -50,5 +60,18 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          target: ${{ steps.target.outputs.target }}
           build-args: |
             CUDA_VERSION=${{ matrix.cuda_version }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.image_type }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.image_type }}:buildcache,mode=max
+
+      - name: Update repo description
+        if: github.event_name != 'pull_request'
+        uses: peter-evans/dockerhub-description@v3
+        with:
+          registry: ghcr.io
+          repository: ${{ env.IMAGE_NAME }}-${{ matrix.image_type }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          readme-filepath: ./README.md
