@@ -47,13 +47,14 @@ RUN --mount=type=cache,target=/opt/comfyui/cache/pip \
     pip install --no-cache-dir --user onnxruntime-gpu \
     --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
 
-# Clone and install ComfyUI (copy requirements.txt first for better caching)
+# Clone and install ComfyUI
 WORKDIR /opt/comfyui
 COPY --chown=comfyui:comfyui requirements.txt ./
 RUN --mount=type=cache,target=/opt/comfyui/cache/pip \
     pip install --no-cache-dir --user -r requirements.txt
 
-RUN git clone --recurse-submodules https://github.com/comfyanonymous/ComfyUI.git && \
+RUN rm -rf ComfyUI && \
+    git clone --recurse-submodules https://github.com/comfyanonymous/ComfyUI.git && \
     cd ComfyUI && \
     mkdir -p logs && \
     chmod 777 logs
