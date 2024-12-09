@@ -1,21 +1,14 @@
 # Base Image
-FROM python:3.11-slim-bookworm as base
+FROM python:3.11-slim-bookworm
 
-# System dependencies - grouped to improve cache utilization
+# System dependencies
 RUN apt-get update && \
     apt-get install -y \
-    git \
-    build-essential \
-    gcc \
-    g++ \
-    aria2 \
-    libgl1 \
-    libglib2.0-0 \
-    fonts-dejavu-core \
-    sudo \
+    git build-essential gcc g++ aria2 \
+    libgl1 libglib2.0-0 fonts-dejavu-core sudo \
     && rm -rf /var/lib/apt/lists/*
 
-# Create user and directory structure first (rarely changes)
+# Create user and directory structure
 RUN useradd -m -u 1000 -d /opt/comfyui comfyui && \
     mkdir -p /opt/comfyui/{models,config,output,cache} && \
     mkdir -p /opt/comfyui/models/{unet,clip,vae,loras} && \
@@ -24,21 +17,17 @@ RUN useradd -m -u 1000 -d /opt/comfyui comfyui && \
     chown -R comfyui:comfyui /usr/local/lib/python3.11/site-packages && \
     chmod -R 777 /usr/local/lib/python3.11/site-packages
 
-# Switch to comfyui user
 USER comfyui:comfyui
 ENV PATH="/opt/comfyui/.local/bin:$PATH" \
     PYTHONPATH=/opt/comfyui \
     HOME=/opt/comfyui \
     PIP_CACHE_DIR=/opt/comfyui/cache/pip
 
-# Install PyTorch and related packages (heavy dependencies)
+# Install PyTorch and dependencies
 ARG CUDA_VERSION=cu121
 RUN --mount=type=cache,target=/opt/comfyui/cache/pip \
     pip install --no-cache-dir --user \
-    torch \
-    torchvision \
-    torchaudio \
-    xformers \
+    torch torchvision torchaudio xformers \
     --index-url https://download.pytorch.org/whl/${CUDA_VERSION}
 
 # Install onnxruntime-gpu
@@ -47,7 +36,7 @@ RUN --mount=type=cache,target=/opt/comfyui/cache/pip \
     pip install --no-cache-dir --user onnxruntime-gpu \
     --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
 
-# Clone and install ComfyUI
+# Install ComfyUI and requirements
 WORKDIR /opt/comfyui
 COPY --chown=comfyui:comfyui requirements.txt ./
 RUN --mount=type=cache,target=/opt/comfyui/cache/pip \
@@ -55,11 +44,9 @@ RUN --mount=type=cache,target=/opt/comfyui/cache/pip \
 
 RUN rm -rf ComfyUI && \
     git clone --recurse-submodules https://github.com/comfyanonymous/ComfyUI.git && \
-    cd ComfyUI && \
-    mkdir -p logs && \
-    chmod 777 logs
+    cd ComfyUI && mkdir -p logs && chmod 777 logs
 
-# Install custom nodes (separate layer for better caching)
+# Install custom nodes
 RUN cd /opt/comfyui/ComfyUI/custom_nodes && \
     git clone https://github.com/ltdrdata/ComfyUI-Manager.git && \
     cd ComfyUI-Manager && \
@@ -73,9 +60,7 @@ RUN cd /opt/comfyui/ComfyUI/custom_nodes && \
     git clone https://github.com/city96/ComfyUI_ExtraModels && \
     git clone https://github.com/ssitu/ComfyUI_UltimateSDUpscale --recursive
 
-# Runtime Image
-FROM base as runtime
-
+# Setup runtime environment
 USER root
 COPY --chmod=755 scripts/entrypoint.sh /scripts/
 COPY --chmod=755 scripts/models_download.sh /scripts/
