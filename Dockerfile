@@ -27,9 +27,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set PATH to use venv by default
 ENV PATH="/venv/bin:$PATH"
 
+# Install numpy first to avoid initialization issues
+RUN pip install --no-cache-dir numpy>=1.24.0
+
 # Combine PyTorch installations to reduce layers and use specific versions
 RUN pip install --no-cache-dir \
-    torch==2.4.1+cu124 torchvision==0.19.1+cu124 torchaudio==2.4.1+cu124 \
+    torch==2.4.1+cu124 \
+    torchvision==0.19.1+cu124 \
+    torchaudio==2.4.1+cu124 \
     --extra-index-url https://download.pytorch.org/whl/cu124 \
     && pip install --no-cache-dir \
     xformers==0.0.22.post7 \
@@ -53,7 +58,7 @@ RUN mkdir -p /opt/comfyui \
     && pip install --no-cache-dir -r requirements.txt
 
 # Verify packages in the same layer as installation
-RUN python3 -c "import torch; import einops; import transformers; import safetensors"
+RUN python3 -c "import torch; import einops; import transformers; import safetensors; import numpy"
 
 # Set up user and directories in a single layer
 RUN useradd -m -d /app runner \
