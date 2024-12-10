@@ -1,8 +1,17 @@
-FROM python:3.11-slim-bookworm
+# Use a specific CUDA base image instead of python slim
+FROM nvidia/cuda:12.4.0-runtime-ubuntu22.04
 
-# Install git and aria2c
-RUN apt-get update \
-    && apt-get install -y git \
+# Set environment variables to reduce interaction during package installation
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+# Install Python and system dependencies in a single layer
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 \
+    python3.11-venv \
+    python3-pip \
+    git \
     build-essential \
     gcc \
     g++ \
@@ -11,57 +20,49 @@ RUN apt-get update \
     libglib2.0-0 \
     fonts-dejavu-core \
     sudo \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && python3.11 -m venv /venv \
+    && . /venv/bin/activate
 
-# Define build argument for CUDA version with default value
-ARG CUDA_VERSION=cu124
+# Set PATH to use venv by default
+ENV PATH="/venv/bin:$PATH"
 
-# Install torch, torchvision, torchaudio, xformers and core dependencies
-RUN pip install --no-cache-dir --break-system-packages \
-    torch==2.4.1+cu124 \
-    torchvision==0.19.1+cu124 \
-    torchaudio==2.4.1+cu124 \
-    --extra-index-url https://download.pytorch.org/whl/cu124
-
-# Install xformers and einops separately
-RUN pip install --no-cache-dir --break-system-packages \
+# Combine PyTorch installations to reduce layers and use specific versions
+RUN pip install --no-cache-dir \
+    torch==2.4.1+cu124 torchvision==0.19.1+cu124 torchaudio==2.4.1+cu124 \
+    --extra-index-url https://download.pytorch.org/whl/cu124 \
+    && pip install --no-cache-dir \
     xformers==0.0.22.post7 \
     einops>=0.6.1
 
-# Install onnxruntime-gpu
-RUN pip uninstall --break-system-packages --yes \
-    onnxruntime-gpu \
-    && pip install --no-cache-dir --break-system-packages \
+# Install onnxruntime-gpu in the same layer
+RUN pip install --no-cache-dir \
     onnxruntime-gpu \
     --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
 
-# Create ComfyUI directory and install
-RUN mkdir -p /opt/comfyui && \
-    cd /opt/comfyui && \
-    git clone https://github.com/comfyanonymous/ComfyUI.git && \
-    cd ComfyUI && \
-    pip install --no-cache-dir --break-system-packages -r requirements.txt
+# Clone and install ComfyUI and its manager in a single layer
+RUN mkdir -p /opt/comfyui \
+    && cd /opt/comfyui \
+    && git clone --depth 1 https://github.com/comfyanonymous/ComfyUI.git \
+    && cd ComfyUI \
+    && pip install --no-cache-dir -r requirements.txt \
+    && mkdir -p custom_nodes \
+    && cd custom_nodes \
+    && git clone --depth 1 https://github.com/ltdrdata/ComfyUI-Manager.git \
+    && cd ComfyUI-Manager \
+    && pip install --no-cache-dir -r requirements.txt
 
-# Install ComfyUI-Manager
-RUN cd /opt/comfyui/ComfyUI/custom_nodes && \
-    git clone https://github.com/ltdrdata/ComfyUI-Manager.git && \
-    cd ComfyUI-Manager && \
-    pip install --no-cache-dir --break-system-packages -r requirements.txt
+# Verify packages in the same layer as installation
+RUN python3 -c "import torch; import einops; import transformers; import safetensors"
 
-# Verify critical packages are installed
-RUN python3 -c "import torch; import einops; import transformers; import safetensors" || \
-    (echo "Package verification failed" && exit 1)
-
-# Create a low-privilege user
+# Set up user and directories in a single layer
 RUN useradd -m -d /app runner \
     && mkdir -p /scripts /workflows /opt/comfyui/models \
-    && chown -R runner:runner /app /scripts /workflows /opt/comfyui
+    && chown -R runner:runner /app /scripts /workflows /opt/comfyui \
+    && echo "runner ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/runner
 
 COPY --chown=runner:runner scripts/. /scripts/
 COPY --chown=runner:runner workflows/. /workflows/
-
-# Add runner to sudoers
-RUN echo "runner ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/runner
 
 USER runner:runner
 VOLUME /app
