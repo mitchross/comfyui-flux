@@ -27,6 +27,7 @@ RUN pip install --no-cache-dir --break-system-packages \
 RUN pip install --no-cache-dir --break-system-packages \
     xformers==0.0.22.post7 \
     einops>=0.6.1
+
 # Install onnxruntime-gpu
 RUN pip uninstall --break-system-packages --yes \
     onnxruntime-gpu \
@@ -34,10 +35,18 @@ RUN pip uninstall --break-system-packages --yes \
     onnxruntime-gpu \
     --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
 
-# Install dependencies for ComfyUI and ComfyUI-Manager
-RUN pip install --no-cache-dir --break-system-packages \
-    -r https://raw.githubusercontent.com/comfyanonymous/ComfyUI/master/requirements.txt \
-    -r https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main/requirements.txt
+# Create ComfyUI directory and install
+RUN mkdir -p /opt/comfyui && \
+    cd /opt/comfyui && \
+    git clone https://github.com/comfyanonymous/ComfyUI.git && \
+    cd ComfyUI && \
+    pip install --no-cache-dir --break-system-packages -r requirements.txt
+
+# Install ComfyUI-Manager
+RUN cd /opt/comfyui/ComfyUI/custom_nodes && \
+    git clone https://github.com/ltdrdata/ComfyUI-Manager.git && \
+    cd ComfyUI-Manager && \
+    pip install --no-cache-dir --break-system-packages -r requirements.txt
 
 # Verify critical packages are installed
 RUN python3 -c "import torch; import einops; import transformers; import safetensors" || \
@@ -45,8 +54,8 @@ RUN python3 -c "import torch; import einops; import transformers; import safeten
 
 # Create a low-privilege user
 RUN useradd -m -d /app runner \
-    && mkdir -p /scripts /workflows \
-    && chown runner:runner /app /scripts /workflows
+    && mkdir -p /scripts /workflows /opt/comfyui/models \
+    && chown -R runner:runner /app /scripts /workflows /opt/comfyui
 
 COPY --chown=runner:runner scripts/. /scripts/
 COPY --chown=runner:runner workflows/. /workflows/
