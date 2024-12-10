@@ -1,7 +1,7 @@
 services:
   comfyui:
     container_name: comfyui
-    image: mitchross/comfyui-flux:latest
+    image: ghcr.io/mitchross/comfyui-flux:cu124
     restart: unless-stopped
     ports:
       - "8188:8188"
@@ -11,10 +11,10 @@ services:
       - CLI_ARGS=
       - HF_TOKEN=${HF_TOKEN}
       - LOW_VRAM=${LOW_VRAM:-false}
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ['0']
-              capabilities: [gpu]
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           device_ids: ['0']
+    #           capabilities: [gpu]

@@ -1,78 +1,60 @@
-# Base Image
 FROM python:3.11-slim-bookworm
 
-# System dependencies
-RUN apt-get update && \
-    apt-get install -y \
-    git build-essential gcc g++ aria2 \
-    libgl1 libglib2.0-0 fonts-dejavu-core sudo \
+# Install git and aria2c
+RUN apt-get update \
+    && apt-get install -y git \
+    build-essential \
+    gcc \
+    g++ \
+    aria2 \
+    libgl1 \
+    libglib2.0-0 \
+    fonts-dejavu-core \
+    sudo \
     && rm -rf /var/lib/apt/lists/*
 
-# Create user and base directory
-RUN useradd -m -u 1000 -d /opt/comfyui comfyui && \
-    chown -R comfyui:comfyui /opt/comfyui && \
-    chown -R comfyui:comfyui /usr/local/lib/python3.11/site-packages && \
-    chmod -R 777 /usr/local/lib/python3.11/site-packages
+# Define build argument for CUDA version with default value
+ARG CUDA_VERSION=cu124
 
-USER comfyui:comfyui
-ENV PATH="/opt/comfyui/.local/bin:$PATH" \
-    PYTHONPATH=/opt/comfyui/ComfyUI \
-    HOME=/opt/comfyui \
-    PIP_CACHE_DIR=/opt/comfyui/cache/pip
-
-# Install PyTorch and dependencies
-ARG CUDA_VERSION=cu121
-RUN --mount=type=cache,target=/opt/comfyui/cache/pip \
-    pip install --no-cache-dir --user \
-    torch torchvision torchaudio xformers \
+# Install torch, torchvision, torchaudio, xformers and core dependencies
+RUN pip install --no-cache-dir --break-system-packages \
+    torch==2.1.0 \
+    torchvision==0.16.0 \
+    torchaudio==2.1.0 \
+    xformers==0.0.22.post7 \
+    einops>=0.6.1 \
     --index-url https://download.pytorch.org/whl/${CUDA_VERSION}
 
 # Install onnxruntime-gpu
-RUN --mount=type=cache,target=/opt/comfyui/cache/pip \
-    pip uninstall --yes onnxruntime-gpu || true && \
-    pip install --no-cache-dir --user onnxruntime-gpu \
+RUN pip uninstall --break-system-packages --yes \
+    onnxruntime-gpu \
+    && pip install --no-cache-dir --break-system-packages \
+    onnxruntime-gpu \
     --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
 
-# Install ComfyUI and requirements
-WORKDIR /opt/comfyui
-COPY --chown=comfyui:comfyui requirements.txt ./
-RUN --mount=type=cache,target=/opt/comfyui/cache/pip \
-    pip install --no-cache-dir --user -r requirements.txt
+# Install dependencies for ComfyUI and ComfyUI-Manager
+RUN pip install --no-cache-dir --break-system-packages \
+    -r https://raw.githubusercontent.com/comfyanonymous/ComfyUI/master/requirements.txt \
+    -r https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main/requirements.txt
 
-# Clone ComfyUI and create directory structure
-RUN rm -rf ComfyUI && \
-    git clone --recurse-submodules https://github.com/comfyanonymous/ComfyUI.git && \
-    mkdir -p /opt/comfyui/{models,config,output,cache} && \
-    mkdir -p /opt/comfyui/models/{unet,clip,vae,loras} && \
-    cd ComfyUI && mkdir -p logs && \
-    chmod -R 777 logs && \
-    chown -R comfyui:comfyui /opt/comfyui
+# Verify critical packages are installed
+RUN python3 -c "import torch; import einops; import transformers; import safetensors" || \
+    (echo "Package verification failed" && exit 1)
 
-# Install custom nodes
-RUN cd /opt/comfyui/ComfyUI/custom_nodes && \
-    git clone https://github.com/ltdrdata/ComfyUI-Manager.git && \
-    cd ComfyUI-Manager && \
-    pip install --no-cache-dir --user -r requirements.txt && \
-    chmod -R 777 . && \
-    cd .. && \
-    git clone https://github.com/Extraltodeus/ComfyUI-AutomaticCFG && \
-    git clone https://github.com/Clybius/ComfyUI-Extra-samplers && \
-    git clone https://github.com/flowtyone/ComfyUI-Flowty-LDSR.git && \
-    git clone https://github.com/Suzie1/ComfyUI_Comfyroll_CustomNodes.git && \
-    git clone https://github.com/city96/ComfyUI_ExtraModels && \
-    git clone https://github.com/ssitu/ComfyUI_UltimateSDUpscale --recursive
+# Create a low-privilege user
+RUN useradd -m -d /app runner \
+    && mkdir -p /scripts /workflows \
+    && chown runner:runner /app /scripts /workflows
 
-# Setup runtime environment
-USER root
-COPY --chmod=755 scripts/entrypoint.sh /scripts/
-COPY --chmod=755 scripts/models_download.sh /scripts/
-COPY scripts/models.txt /scripts/
-COPY scripts/models_fp8.txt /scripts/
-RUN chown -R comfyui:comfyui /scripts
+COPY --chown=runner:runner scripts/. /scripts/
+COPY --chown=runner:runner workflows/. /workflows/
 
-USER comfyui:comfyui
-ENV CLI_ARGS=""
-VOLUME ["/opt/comfyui/models", "/opt/comfyui/config", "/opt/comfyui/output", "/opt/comfyui/cache"]
+# Add runner to sudoers
+RUN echo "runner ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/runner
+
+USER runner:runner
+VOLUME /app
+WORKDIR /app
 EXPOSE 8188
-
-CMD ["/scripts/entrypoint.sh"]
+ENV CLI_ARGS=""
+CMD ["bash","/scripts/entrypoint.sh"]

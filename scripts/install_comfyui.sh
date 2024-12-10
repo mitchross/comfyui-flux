@@ -7,19 +7,19 @@ echo "########################################"
 set -euxo pipefail
 
 # ComfyUI
-cd /app
+cd /opt/comfyui
 git clone --recurse-submodules \
     https://github.com/comfyanonymous/ComfyUI.git \
-    || (cd /app/ComfyUI && git pull)
+    || (cd /opt/comfyui/ComfyUI && git pull)
 
 # ComfyUI Manager
-cd /app/ComfyUI/custom_nodes
+cd /opt/comfyui/ComfyUI/custom_nodes
 git clone --recurse-submodules \
     https://github.com/ltdrdata/ComfyUI-Manager.git \
-    || (cd /app/ComfyUI/custom_nodes/ComfyUI-Manager && git pull)
+    || (cd /opt/comfyui/ComfyUI/custom_nodes/ComfyUI-Manager && git pull)
 
 # Copy workflows
-WORKFLOWS_DIR="/app/ComfyUI/user/default/workflows"
+WORKFLOWS_DIR="/opt/comfyui/ComfyUI/user/default/workflows"
 mkdir -p "$WORKFLOWS_DIR"
 
 if [ -d "/workflows" ]; then
@@ -30,4 +30,4 @@ else
 fi
 
 # Finish
-touch /app/.download-complete
+touch /opt/comfyui/.download-complete /opt/comfyui/.download-complete
