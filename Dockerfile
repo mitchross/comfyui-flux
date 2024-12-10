@@ -18,10 +18,10 @@ ARG CUDA_VERSION=cu124
 
 # Install torch, torchvision, torchaudio, xformers and core dependencies
 RUN pip install --no-cache-dir --break-system-packages \
-    torch==2.1.0+${CUDA_VERSION} \
-    torchvision==0.16.0+${CUDA_VERSION} \
-    torchaudio==2.1.0+${CUDA_VERSION} \
-    --extra-index-url https://download.pytorch.org/whl/${CUDA_VERSION}
+    torch==2.5.1+cu124 \
+    torchvision==0.16.1+cu124 \
+    torchaudio==2.5.1+cu124 \
+    --extra-index-url https://download.pytorch.org/whl/cu124
 
 # Install xformers and einops separately
 RUN pip install --no-cache-dir --break-system-packages \
