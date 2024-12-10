@@ -28,8 +28,8 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
-          driver: docker-container
-          buildkitd-flags: --debug
+          driver: docker
+          install: true
 
       - name: Login to Registry
         if: github.event_name != 'pull_request'
@@ -47,14 +47,13 @@ jobs:
           tags: |
             type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
             type=raw,value=cu124,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
-            type=semver,pattern={{version}}
             type=sha,prefix=sha-,format=short
           labels: |
             org.opencontainers.image.title=ComfyUI Docker
             org.opencontainers.image.description=ComfyUI Docker image with CUDA support
             maintainer=${{ github.repository_owner }}
 
-      - name: Build and push
+      - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -64,7 +63,5 @@ jobs:
           platforms: linux/amd64
           build-args: |
             CUDA_VERSION=cu124
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          outputs: type=docker
+          load: true
           provenance: false
