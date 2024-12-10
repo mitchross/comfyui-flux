@@ -18,16 +18,15 @@ ARG CUDA_VERSION=cu124
 
 # Install torch, torchvision, torchaudio, xformers and core dependencies
 RUN pip install --no-cache-dir --break-system-packages \
-    torch==2.5.1+cu124 \
-    torchvision==0.16.1+cu124 \
-    torchaudio==2.5.1+cu124 \
+    torch==2.1.2+cu124 \
+    torchvision==0.16.2+cu124 \
+    torchaudio==2.1.2+cu124 \
     --extra-index-url https://download.pytorch.org/whl/cu124
 
 # Install xformers and einops separately
 RUN pip install --no-cache-dir --break-system-packages \
     xformers==0.0.22.post7 \
     einops>=0.6.1
-
 # Install onnxruntime-gpu
 RUN pip uninstall --break-system-packages --yes \
     onnxruntime-gpu \
