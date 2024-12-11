@@ -46,7 +46,17 @@ RUN pip install --no-cache-dir --break-system-packages \
 
 # Create directories and set up user
 RUN useradd -m -d /opt/comfyui -u 1000 runner \
-    && mkdir -p /opt/comfyui/{models/{unet,clip,vae,loras},config,output,cache/.cache/{pip,huggingface,pycache}} /scripts /workflows \
+    && mkdir -p /opt/comfyui/models/unet \
+    && mkdir -p /opt/comfyui/models/clip \
+    && mkdir -p /opt/comfyui/models/vae \
+    && mkdir -p /opt/comfyui/models/loras \
+    && mkdir -p /opt/comfyui/config \
+    && mkdir -p /opt/comfyui/output \
+    && mkdir -p /opt/comfyui/cache/.cache/pip \
+    && mkdir -p /opt/comfyui/cache/.cache/huggingface \
+    && mkdir -p /opt/comfyui/cache/.cache/pycache \
+    && mkdir -p /scripts \
+    && mkdir -p /workflows \
     && chown -R runner:runner /opt/comfyui /scripts /workflows \
     && chmod -R 777 /opt/comfyui/cache/.cache
 
