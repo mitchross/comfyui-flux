@@ -1,28 +1,47 @@
+########################################
+# FLUX Model Collection
+# Organized by model type with clear sections
+########################################
+
+#----------------------------------------
+# UNet Models
+#----------------------------------------
 # FLUX.1[schnell] UNet
 https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/flux1-schnell.safetensors
-  dir=unet
+  dir=/opt/comfyui/models/unet
   out=flux1-schnell.safetensors
 
 # FLUX.1[dev] UNet (Requires HF_TOKEN)
 # Requires HF_TOKEN
 https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/flux1-dev.safetensors
-  dir=unet
+  dir=/opt/comfyui/models/unet
   out=flux1-dev.safetensors
 
-# Flux Text Encoders
+#----------------------------------------
+# Text Encoders
+#----------------------------------------
+# CLIP Text Encoder
 https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors
-  dir=clip
+  dir=/opt/comfyui/models/clip
   out=clip_l.safetensors
+
+# T5 Text Encoder
 https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors
-  dir=clip
+  dir=/opt/comfyui/models/clip
   out=t5xxl_fp16.safetensors
 
-# VAE
+#----------------------------------------
+# VAE Models
+#----------------------------------------
+# FLUX VAE
 https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/ae.safetensors
-  dir=vae
+  dir=/opt/comfyui/models/vae
   out=ae.safetensors
 
-# Loras
+#----------------------------------------
+# LoRA Models
+#----------------------------------------
+# FLUX Realism LoRA
 https://huggingface.co/comfyanonymous/flux_RealismLora_converted_comfyui/resolve/main/flux_realism_lora.safetensors
-  dir=loras
+  dir=/opt/comfyui/models/loras
   out=flux_realism_lora.safetensors

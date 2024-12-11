@@ -1,7 +1,45 @@
-# FLUX.1 FP8 Models
-https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/flux1-schnell-fp8.safetensors
-  dir=unet
-  out=flux1-schnell-fp8.safetensors
-https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/flux1-dev-fp8.safetensors
-  dir=unet
-  out=flux1-dev-fp8.safetensors
+########################################
+# FLUX Model Collection - FP8 Version
+# Optimized for low VRAM usage
+########################################
+
+# Note: Add FP8 model variants here when available
+# Currently using same models as full version
+# Replace with FP8 versions when they become available
+
+#----------------------------------------
+# UNet Models
+#----------------------------------------
+# FLUX.1[schnell] UNet
+https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/flux1-schnell.safetensors
+  dir=/opt/comfyui/models/unet
+  out=flux1-schnell.safetensors
+
+#----------------------------------------
+# Text Encoders
+#----------------------------------------
+# CLIP Text Encoder
+https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors
+  dir=/opt/comfyui/models/clip
+  out=clip_l.safetensors
+
+# T5 Text Encoder
+https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors
+  dir=/opt/comfyui/models/clip
+  out=t5xxl_fp16.safetensors
+
+#----------------------------------------
+# VAE Models
+#----------------------------------------
+# FLUX VAE
+https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/ae.safetensors
+  dir=/opt/comfyui/models/vae
+  out=ae.safetensors
+
+#----------------------------------------
+# LoRA Models
+#----------------------------------------
+# FLUX Realism LoRA
+https://huggingface.co/comfyanonymous/flux_RealismLora_converted_comfyui/resolve/main/flux_realism_lora.safetensors
+  dir=/opt/comfyui/models/loras
+  out=flux_realism_lora.safetensors
